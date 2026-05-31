@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Treasure & Curse</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f4f0; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 1rem; }
+#game { width: 100%; max-width: 480px; padding: 1rem; }
+h1 { font-size: 20px; font-weight: 500; color: #1a1a1a; text-align: center; margin-bottom: 1rem; letter-spacing: 0.01em; }
+.status-bar { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 10px 16px; font-size: 14px; color: #666; margin-bottom: 1rem; min-height: 44px; display: flex; align-items: center; gap: 8px; }
+.badge { font-size: 12px; padding: 2px 8px; border-radius: 99px; font-weight: 500; white-space: nowrap; }
+.badge-curse { background: #FAECE7; color: #993C1D; }
+.badge-info { background: #E6F1FB; color: #185FA5; }
+.badge-success { background: #EAF3DE; color: #3B6D11; }
+.badge-combo { background: #EAF3DE; color: #3B6D11; }
+.board { position: relative; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items: start; margin-bottom: 1rem; }
+.zone-label { font-size: 11px; color: #888; text-align: center; margin-bottom: 6px; text-transform: lowercase; letter-spacing: 0.03em; }
+.card { width: 72px; height: 100px; border-radius: 8px; border: 0.5px solid rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; flex-direction: column; gap: 2px; position: relative; background: #fff; }
+.card.face-down { background: #185FA5; border-color: #0C447C; }
+.card.face-down::after { content: ''; position: absolute; inset: 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 2px, transparent 2px, transparent 6px); }
+.card.face-down-ai { background: #BA7517; border-color: #854F0B; }
+.card.face-down-ai::after { content: ''; position: absolute; inset: 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 2px, transparent 2px, transparent 6px); }
+.card.empty { border-style: dashed; background: transparent; color: #aaa; font-size: 11px; }
+.card.red-card { color: #A32D2D; }
+.card.black-card { color: #1a1a1a; }
+.card.face-card-glow { box-shadow: 0 0 0 2px #EF9F27; }
+.card.tappable { cursor: pointer; transition: transform 0.1s; }
+.card.tappable:hover { transform: translateY(-3px); }
+.card.tappable:active { transform: scale(0.97); }
+.card.tappable-pulse { box-shadow: 0 0 0 3px #EF9F27; }
+.pile-card.combo-active { box-shadow: 0 0 0 3px #639922; cursor: pointer; animation: combo-pulse 0.8s ease-in-out infinite alternate; }
+@keyframes combo-pulse { from { box-shadow: 0 0 0 3px #639922; } to { box-shadow: 0 0 0 5px #97C459; } }
+.pile-card.combo-active:hover { transform: translateY(-3px); cursor: pointer; }
+.deck-count { font-size: 11px; color: #888; margin-top: 6px; }
+.treasure-pile { display: flex; flex-direction: column; align-items: center; }
+.pile-stack { position: relative; width: 72px; height: 100px; }
+.pile-stack .card { position: absolute; top: 0; left: 0; }
+.pile-count { font-size: 11px; color: #888; margin-top: 6px; text-align: center; }
+.player-info { font-size: 13px; font-weight: 500; text-align: center; margin-bottom: 4px; }
+.deck-zone { display: flex; flex-direction: column; align-items: center; }
+.controls { display: flex; gap: 8px; justify-content: center; margin-bottom: 1rem; }
+button { font-family: inherit; font-size: 13px; padding: 8px 18px; border-radius: 8px; border: 0.5px solid rgba(0,0,0,0.2); background: #fff; color: #1a1a1a; cursor: pointer; transition: background 0.1s, transform 0.1s; }
+button:hover { background: #f0eeea; }
+button:active { transform: scale(0.98); }
+.action-hint { text-align: center; font-size: 13px; color: #888; margin-bottom: 1rem; min-height: 20px; }
+.action-hint.your-turn { color: #185FA5; font-weight: 500; }
+.action-hint.curse-turn { color: #993C1D; font-weight: 500; }
+.action-hint.combo-turn { color: #3B6D11; font-weight: 500; }
+.action-hint.pause { color: #854F0B; font-weight: 500; }
+.log { background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #888; max-height: 120px; overflow-y: auto; line-height: 1.8; }
+.log-entry { border-bottom: 0.5px solid rgba(0,0,0,0.07); padding: 2px 0; }
+.log-entry:last-child { border-bottom: none; }
+.log-entry.highlight { color: #1a1a1a; font-weight: 500; }
+.you-indicator { color: #185FA5; font-weight: 500; }
+.ai-indicator { color: #BA7517; font-weight: 500; }
+#anim-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.flying-card { position: absolute; width: 72px; height: 100px; border-radius: 8px; border: 0.5px solid #0C447C; background: #185FA5; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 2px; font-size: 13px; font-weight: 500; pointer-events: none; z-index: 100; }
+.flying-card.ai-back { background: #BA7517; border-color: #854F0B; }
+.flying-card.revealed { background: #fff; border-color: rgba(0,0,0,0.15); }
+.flying-card.red { color: #A32D2D; }
+.flying-card.black { color: #1a1a1a; }
+.flying-card::after { content: ''; position: absolute; inset: 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); background: repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 2px, transparent 2px, transparent 6px); }
+.flying-card.revealed::after { display: none; }
+.curse-countdown { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px; background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 8px; margin-bottom: 1rem; }
+.curse-countdown-card { width: 72px; height: 100px; border-radius: 8px; border: 0.5px solid rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 2px; font-size: 13px; font-weight: 500; background: #fff; }
+.curse-countdown-card.red { color: #A32D2D; }
+.curse-countdown-card.black { color: #1a1a1a; }
+.countdown-bar-wrap { width: 100%; height: 4px; background: rgba(0,0,0,0.08); border-radius: 2px; overflow: hidden; }
+.countdown-bar { height: 4px; background: #EF9F27; border-radius: 2px; width: 100%; transition: width 2s linear; }
+.countdown-label { font-size: 12px; color: #888; text-align: center; }
+.rules { background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 12px 16px; margin-bottom: 1rem; font-size: 12px; color: #666; line-height: 1.7; }
+.rules summary { font-weight: 500; color: #1a1a1a; cursor: pointer; font-size: 13px; }
+.rules p { margin-top: 8px; }
+</style>
+</head>
+<body>
+<div id="game">
+  <h1>Treasure &amp; Curse</h1>
+
+  <details class="rules">
+    <summary>How to play</summary>
+    <p><strong>Goal:</strong> Force your opponent to run out of cards.</p>
+    <p><strong>On your turn:</strong> Tap your deck (blue) to flip the top card onto the Treasure Pile. The AI (orange) goes automatically.</p>
+    <p><strong>The Curse:</strong> When a face card is played, the opponent gets chances to flip a face card back — 1 for a Jack, 2 for a Queen, 3 for a King. If they succeed, they claim the pile and the curse chains. If they fail, the face-card player claims the pile.</p>
+    <p><strong>Combo:</strong> If two non-face cards of the same rank are played in a row, the Treasure Pile glows green — tap it fast to claim it! The AI may also notice and grab it.</p>
+  </details>
+
+  <div class="status-bar" id="status-bar">Press "New Game" to start.</div>
+  <div class="board" id="board">
+    <div class="deck-zone">
+      <div class="player-info you-indicator">You</div>
+      <div class="zone-label">your deck</div>
+      <div class="card face-down" id="player-deck-card" onclick="playCard()"></div>
+      <div class="deck-count" id="player-count">46 cards</div>
+    </div>
+    <div class="treasure-pile">
+      <div class="zone-label">treasure pile</div>
+      <div class="pile-stack">
+        <div class="card empty pile-card" id="pile-top" onclick="playerClaimCombo()">empty</div>
+      </div>
+      <div class="pile-count" id="pile-count">0 cards</div>
+    </div>
+    <div class="deck-zone">
+      <div class="player-info ai-indicator">AI</div>
+      <div class="zone-label">AI deck</div>
+      <div class="card face-down-ai" id="ai-deck-card"></div>
+      <div class="deck-count" id="ai-count">46 cards</div>
+    </div>
+    <div id="anim-layer"></div>
+  </div>
+  <div id="curse-pause-panel" style="display:none"></div>
+  <div class="action-hint" id="action-hint"></div>
+  <div class="controls">
+    <button onclick="newGame()">New game</button>
+  </div>
+  <div class="log" id="log"><div style="color:#aaa;font-size:13px;">Game log will appear here.</div></div>
+</div>
+
+<script>
+const SUITS=['♠','♥','♦','♣'],NON_FACE_RANKS=['A','2','3','4','5','6','7','8','9','10'],FACE_RANKS=['J','Q','K'],RED_SUITS=['♥','♦'],FACE_CARDS={J:1,Q:2,K:3},AI_NOTICE_CHANCE=.65,ANIM_MS=320,CURSE_PAUSE_MS=2e3;
+let audioCtx=null;
+function getAudioCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext);return audioCtx}
+function playFlipSound(){try{const c=getAudioCtx(),b=c.createBuffer(1,c.sampleRate*.08,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++){const t=i/c.sampleRate,e=Math.exp(-t*60);d[i]=(Math.random()*2-1)*e*.35+Math.sin(2*Math.PI*900*t)*e*.15+Math.sin(2*Math.PI*1400*t)*Math.exp(-t*120)*.1}const s=c.createBufferSource(),g=c.createGain();s.buffer=b;g.gain.setValueAtTime(1,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.08);s.connect(g);g.connect(c.destination);s.start()}catch(e){}}
+function playComboSound(){try{const c=getAudioCtx(),b=c.createBuffer(1,c.sampleRate*.18,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++){const t=i/c.sampleRate,e=Math.exp(-t*25);d[i]=Math.sin(2*Math.PI*520*t)*e*.3+Math.sin(2*Math.PI*780*t)*e*.2+Math.sin(2*Math.PI*1040*t)*Math.exp(-t*40)*.15}const s=c.createBufferSource(),g=c.createGain();s.buffer=b;g.gain.setValueAtTime(1,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.18);s.connect(g);g.connect(c.destination);s.start()}catch(e){}}
+function makeDeck(){let d=[];for(let c=0;c<2;c++)for(let s of SUITS)for(let r of NON_FACE_RANKS)d.push({rank:r,suit:s});for(let s of SUITS)for(let r of FACE_RANKS)d.push({rank:r,suit:s});return d}
+function shuffle(d){for(let i=d.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]]}return d}
+function cardLabel(c){return c?c.rank+c.suit:''}
+function isFace(c){return c&&FACE_CARDS[c.rank]!==undefined}
+function isRed(c){return c&&RED_SUITS.includes(c.suit)}
+let state={playerDeck:[],aiDeck:[],pile:[],phase:'idle',currentTurn:'player',curseChances:0,cursedBy:null,nextTurnAfterPile:'player',gameOver:false,playerCanAct:false,comboActive:false,aiComboTimer:null,lastCard:null,animating:false};
+function showCursePause(topCard,claimedBy,msg,callback){const panel=document.getElementById('curse-pause-panel');const winner=claimedBy==='player'?'You collect the pile':'AI collects the pile';const cc=isRed(topCard)?'red':'black';panel.innerHTML=`<div class="curse-countdown"><div class="countdown-label">${msg} — ${winner}</div><div class="curse-countdown-card ${cc}"><span style="font-size:18px">${topCard.rank}</span><span style="font-size:16px">${topCard.suit}</span></div><div class="countdown-bar-wrap"><div class="countdown-bar" id="cbar"></div></div></div>`;panel.style.display='block';setHint('Resuming in 2 seconds...','pause');requestAnimationFrame(()=>requestAnimationFrame(()=>{const b=document.getElementById('cbar');if(b)b.style.width='0%'}));setTimeout(()=>{panel.style.display='none';panel.innerHTML='';callback()},CURSE_PAUSE_MS)}
+function getElCenter(el){const board=document.getElementById('board');const br=board.getBoundingClientRect();const er=el.getBoundingClientRect();return{x:er.left-br.left+er.width/2,y:er.top-br.top+er.height/2}}
+function animateCard(fromEl,toEl,card,faceUp,isAi,callback){const layer=document.getElementById('anim-layer');const from=getElCenter(fromEl);const to=getElCenter(toEl);const fc=document.createElement('div');fc.className='flying-card'+(isAi?' ai-back':'');fc.style.left=(from.x-36)+'px';fc.style.top=(from.y-50)+'px';fc.style.transition='none';layer.appendChild(fc);requestAnimationFrame(()=>requestAnimationFrame(()=>{fc.style.transition=`left ${ANIM_MS}ms cubic-bezier(.4,0,.2,1),top ${ANIM_MS}ms cubic-bezier(.4,0,.2,1)`;fc.style.left=(to.x-36)+'px';fc.style.top=(to.y-50)+'px';if(faceUp&&card)setTimeout(()=>{fc.className='flying-card revealed '+(isRed(card)?'red':'black');fc.innerHTML=`<span style="font-size:18px">${card.rank}</span><span style="font-size:16px">${card.suit}</span>`},ANIM_MS/2);setTimeout(()=>{layer.removeChild(fc);if(callback)callback()},ANIM_MS+20)}))}
+function animatePileClaim(toWho,callback){const layer=document.getElementById('anim-layer');const pileEl=document.getElementById('pile-top');const targetEl=toWho==='player'?document.getElementById('player-deck-card'):document.getElementById('ai-deck-card');const count=Math.min(state.pile.length,5);const from=getElCenter(pileEl);const to=getElCenter(targetEl);let done=0;if(count===0){if(callback)callback();return}for(let i=0;i<count;i++){const fc=document.createElement('div');fc.className='flying-card';fc.style.left=(from.x-36+(i-2)*3)+'px';fc.style.top=(from.y-50+(i-2)*3)+'px';fc.style.transition='none';layer.appendChild(fc);const delay=i*40;setTimeout(()=>requestAnimationFrame(()=>{fc.style.transition=`left ${ANIM_MS}ms cubic-bezier(.4,0,.2,1),top ${ANIM_MS}ms cubic-bezier(.4,0,.2,1),opacity ${ANIM_MS}ms`;fc.style.left=(to.x-36)+'px';fc.style.top=(to.y-50)+'px';fc.style.opacity='.7';setTimeout(()=>{layer.removeChild(fc);done++;if(done===count&&callback)callback()},ANIM_MS+20)}),delay)}}
+function setHint(text,style){const el=document.getElementById('action-hint');el.textContent=text;el.className='action-hint'+(style?' '+style:'')}
+function setPlayerTappable(enabled){state.playerCanAct=enabled;const card=document.getElementById('player-deck-card');if(enabled)card.classList.add('tappable','tappable-pulse');else card.classList.remove('tappable','tappable-pulse')}
+function setPileComboActive(active){state.comboActive=active;const el=document.getElementById('pile-top');if(active)el.classList.add('combo-active');else el.classList.remove('combo-active')}
+function cancelAiComboTimer(){if(state.aiComboTimer){clearTimeout(state.aiComboTimer);state.aiComboTimer=null}}
+function checkCombo(card){if(!state.lastCard||isFace(card)||isFace(state.lastCard))return false;return card.rank===state.lastCard.rank}
+function triggerCombo(){setPileComboActive(true);setStatus('<span class="badge badge-combo">Combo!</span> Two '+state.pile[state.pile.length-1].rank+'s in a row — tap the Treasure Pile!');setHint('Tap the Treasure Pile to claim it!','combo-turn');if(Math.random()<AI_NOTICE_CHANCE){let delay=500+Math.random()*500;state.aiComboTimer=setTimeout(()=>{if(state.comboActive)aiClaimCombo()},delay)}}
+function claimComboFor(who,callback){cancelAiComboTimer();setPileComboActive(false);playComboSound();let pile=[...state.pile];state.pile=[];state.lastCard=null;animatePileClaim(who,()=>{if(who==='player'){state.playerDeck=state.playerDeck.concat(pile);log('You claimed the Combo! +'+pile.length+' cards.',true)}else{state.aiDeck=state.aiDeck.concat(pile);log('AI claimed the Combo! +'+pile.length+' cards.',true)}render();if(callback)callback()})}
+function playerClaimCombo(){if(!state.comboActive||state.gameOver||state.animating)return;state.animating=true;claimComboFor('player',()=>{state.animating=false;if(checkGameOver())return;let next=state.nextTurnAfterPile;state.currentTurn=next;state.phase='normal';render();if(next==='player'){setStatus('<span class="badge badge-info">Your turn</span> Flip the top card of your deck.');setHint('Tap your deck to flip a card','your-turn');setPlayerTappable(true)}else{setStatus('<span class="badge" style="background:#FAEEDA;color:#633806">AI turn</span> The AI is about to flip.');setHint('Waiting for AI...','');setPlayerTappable(false);setTimeout(()=>aiTakeTurn(),900)}})}
+function aiClaimCombo(){if(!state.comboActive||state.gameOver)return;claimComboFor('ai',()=>{if(checkGameOver())return;let next=state.nextTurnAfterPile;state.currentTurn=next;state.phase='normal';render();if(next==='player'){setStatus('<span class="badge badge-info">Your turn</span> Flip the top card of your deck.');setHint('Tap your deck to flip a card','your-turn');setPlayerTappable(true)}else{setStatus('<span class="badge" style="background:#FAEEDA;color:#633806">AI turn</span> The AI is about to flip.');setHint('Waiting for AI...','');setPlayerTappable(false);setTimeout(()=>aiTakeTurn(),900)}})}
+function newGame(){cancelAiComboTimer();let deck=shuffle(makeDeck());state={playerDeck:deck.slice(0,46),aiDeck:deck.slice(46),pile:[],phase:'normal',currentTurn:'player',curseChances:0,cursedBy:null,nextTurnAfterPile:'player',gameOver:false,playerCanAct:false,comboActive:false,aiComboTimer:null,lastCard:null,animating:false};document.getElementById('log').innerHTML='';document.getElementById('curse-pause-panel').style.display='none';document.getElementById('curse-pause-panel').innerHTML='';setPileComboActive(false);document.getElementById('anim-layer').innerHTML='';log('Game started! 92-card deck. You go first.',true);render();setStatus('<span class="badge badge-info">Your turn</span> Flip the top card of your deck.');setHint('Tap your deck to flip a card','your-turn');setPlayerTappable(true)}
+function setStatus(html){document.getElementById('status-bar').innerHTML=html}
+function log(msg,highlight){const el=document.getElementById('log');const div=document.createElement('div');div.className='log-entry'+(highlight?' highlight':'');div.textContent=msg;el.insertBefore(div,el.firstChild)}
+function render(){document.getElementById('player-count').textContent=state.playerDeck.length+' card'+(state.playerDeck.length!==1?'s':'');document.getElementById('ai-count').textContent=state.aiDeck.length+' card'+(state.aiDeck.length!==1?'s':'');document.getElementById('pile-count').textContent=state.pile.length+' card'+(state.pile.length!==1?'s':'')+' in pile';let pileTop=state.pile.length>0?state.pile[state.pile.length-1]:null;let pileEl=document.getElementById('pile-top');let wasCombo=pileEl.classList.contains('combo-active');if(!pileTop){pileEl.className='card empty pile-card';pileEl.textContent='empty';pileEl.style.fontSize='11px'}else{pileEl.className='card pile-card '+(isRed(pileTop)?'red-card':'black-card')+(isFace(pileTop)?' face-card-glow':'')+(wasCombo?' combo-active':'');pileEl.innerHTML=`<span style="font-size:18px">${pileTop.rank}</span><span style="font-size:16px">${pileTop.suit}</span>`;pileEl.style.fontSize=''}let pDeck=document.getElementById('player-deck-card');let aDeck=document.getElementById('ai-deck-card');if(state.playerDeck.length===0){pDeck.className='card empty';pDeck.textContent='out!';pDeck.style.fontSize='11px'}else{pDeck.className='card face-down'+(state.playerCanAct?' tappable tappable-pulse':'');pDeck.textContent='';pDeck.style.fontSize=''}if(state.aiDeck.length===0){aDeck.className='card empty';aDeck.textContent='out!';aDeck.style.fontSize='11px'}else{aDeck.className='card face-down-ai';aDeck.textContent='';aDeck.style.fontSize=''}}
+function checkGameOver(){if(state.playerDeck.length===0){endGame('AI wins! You ran out of cards.');return true}if(state.aiDeck.length===0){endGame('You win! The AI ran out of cards.');return true}return false}
+function endGame(msg){cancelAiComboTimer();state.gameOver=true;state.phase='idle';log(msg,true);setStatus('<span class="badge badge-success">Game over</span> '+msg);setHint('');setPlayerTappable(false);setPileComboActive(false);render()}
+function giveToPlayerAnimated(who,topCard,pauseMsg,callback){let pile=[...state.pile];state.pile=[];state.lastCard=null;animatePileClaim(who,()=>{if(who==='player'){state.playerDeck=state.playerDeck.concat(pile);log('You collect '+pile.length+' cards from the Treasure Pile!',true)}else{state.aiDeck=state.aiDeck.concat(pile);log('AI collects '+pile.length+' cards from the Treasure Pile!',true)}render();showCursePause(topCard,who,pauseMsg,callback)})}
+function resolveAfterCollection(){cancelAiComboTimer();setPileComboActive(false);state.phase='normal';state.curseChances=0;state.cursedBy=null;if(checkGameOver())return;let next=state.nextTurnAfterPile;state.currentTurn=next;render();if(next==='player'){setStatus('<span class="badge badge-info">Your turn</span> Flip the top card of your deck.');setHint('Tap your deck to flip a card','your-turn');setPlayerTappable(true)}else{setStatus('<span class="badge" style="background:#FAEEDA;color:#633806">AI turn</span> The AI is about to flip.');setHint('Waiting for AI...','');setPlayerTappable(false);setTimeout(()=>aiTakeTurn(),900)}}
+function doFlip(who,card,callback){const fromEl=who==='player'?document.getElementById('player-deck-card'):document.getElementById('ai-deck-card');const toEl=document.getElementById('pile-top');playFlipSound();animateCard(fromEl,toEl,card,true,who==='ai',()=>{render();if(callback)callback()})}
+function afterNormalCard(who,card){if(checkCombo(card)){state.lastCard=card;render();state.nextTurnAfterPile=who==='player'?'ai':'player';triggerCombo();setPlayerTappable(false);return}state.lastCard=card;if(!isFace(card)){let next=who==='player'?'ai':'player';state.currentTurn=next;state.nextTurnAfterPile=next;render();if(next==='player'){setStatus('<span class="badge badge-info">Your turn</span> Flip the top card of your deck.');setHint('Tap your deck to flip a card','your-turn');setPlayerTappable(true)}else{setStatus('<span class="badge" style="background:#FAEEDA;color:#633806">AI turn</span> The AI is about to flip.');setHint('Waiting for AI...','');setPlayerTappable(false);setTimeout(()=>aiTakeTurn(),900)}}else{state.lastCard=null;let chances=FACE_CARDS[card.rank],opponent=who==='player'?'ai':'player';state.phase='curse';state.curseChances=chances;state.cursedBy=who;state.currentTurn=opponent;let faceNames={J:'Jack',Q:'Queen',K:'King'};log((who==='player'?'You':'AI')+' played a '+faceNames[card.rank]+'! The Curse begins — '+(opponent==='player'?'you':'AI')+' get'+(opponent==='ai'?'s':'')+' '+chances+' chance'+(chances>1?'s':'')+' to flip a face card.',true);setStatus('<span class="badge badge-curse">The Curse!</span> '+(opponent==='player'?'You':'AI')+' must flip a face card. '+chances+' chance'+(chances>1?'s':'')+' remain'+(chances===1?'s':'')+'.'); render();if(opponent==='player'){setHint('Tap your deck — take your chance ('+chances+' left)','curse-turn');setPlayerTappable(true)}else{setHint('Waiting for AI...','');setPlayerTappable(false);setTimeout(()=>aiTakeTurn(),1000)}}}
+function afterCurseCard(who,card){state.lastCard=null;if(isFace(card)){let faceNames={J:'Jack',Q:'Queen',K:'King'};log((who==='player'?'You':'AI')+' flipped a '+faceNames[card.rank]+'! Curse broken — '+(who==='player'?'you':'AI')+' collect the pile. Curse chains!',true);giveToPlayerAnimated(who,card,'Curse broken with a '+faceNames[card.rank],()=>{if(checkGameOver())return;let chances=FACE_CARDS[card.rank],opponent=who==='player'?'ai':'player';state.phase='curse';state.curseChances=chances;state.cursedBy=who;state.currentTurn=opponent;state.nextTurnAfterPile=who;log('Chain curse! '+(opponent==='player'?'You':'AI')+' must now survive '+chances+' chance'+(chances>1?'s':'')+'.',true);setStatus('<span class="badge badge-curse">Chain Curse!</span> '+(opponent==='player'?'You':'AI')+' must flip a face card. '+chances+' chance'+(chances>1?'s':'')+' remain'+(chances===1?'s':'')+'.'); render();if(opponent==='player'){setHint('Tap your deck — take your chance ('+chances+' left)','curse-turn');setPlayerTappable(true)}else{setHint('Waiting for AI...','');setPlayerTappable(false);setTimeout(()=>aiTakeTurn(),1000)}})}else{state.curseChances--;render();if(state.curseChances>0){log((who==='player'?'You':'AI')+' flipped '+cardLabel(card)+' — not a face card. '+state.curseChances+' chance'+(state.curseChances>1?'s':'')+' remain.',false);setStatus('<span class="badge badge-curse">Curse active!</span> '+state.curseChances+' chance'+(state.curseChances>1?'s':'')+' remain.');if(who==='player'){setHint('Tap your deck — take your chance ('+state.curseChances+' left)','curse-turn');setPlayerTappable(true)}else{setHint('Waiting for AI...','');setPlayerTappable(false);setTimeout(()=>aiTakeTurn(),900)}}else{log((who==='player'?'You':'AI')+' failed the curse! '+(state.cursedBy==='player'?'You':'AI')+' collect the pile.',true);state.nextTurnAfterPile=who==='player'?'ai':'player';const topCard=state.pile[state.pile.length-1];giveToPlayerAnimated(state.cursedBy,topCard,(who==='player'?'You':'AI')+' failed the curse',()=>{if(checkGameOver())return;resolveAfterCollection()})}}}
+function playCard(){if(state.gameOver||!state.playerCanAct||state.currentTurn!=='player'||state.animating)return;state.animating=true;setPlayerTappable(false);let deck=state.playerDeck;if(deck.length===0){log('Your deck is empty!',true);checkGameOver();state.animating=false;return}let card=deck.shift();state.playerDeck=deck;state.pile.push(card);log('You flip: '+cardLabel(card),false);doFlip('player',card,()=>{state.animating=false;if(state.phase==='normal')afterNormalCard('player',card);else if(state.phase==='curse')afterCurseCard('player',card)})}
+function aiTakeTurn(){if(state.gameOver)return;let deck=state.aiDeck;if(deck.length===0){log('AI deck is empty!',true);checkGameOver();return}let card=deck.shift();state.aiDeck=deck;state.pile.push(card);log('AI flips: '+cardLabel(card),false);doFlip('ai',card,()=>{if(state.phase==='normal')afterNormalCard('ai',card);else if(state.phase==='curse')afterCurseCard('ai',card)})}
+render();
+</script>
+</body>
+</html>
